@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Union
+from typing import Dict, Literal, Optional, Union
 
 import httpx
 from pydantic import BaseModel, Field
@@ -23,6 +23,7 @@ class TransportConfig(BaseSettings):
     transport_routes: Dict[str, RouteConfig] = Field(
         default_factory=dict, description="Pattern-based route configuration"
     )
+    timeout: int = Field(30, description="Timeout for HTTP requests in seconds")
 
     def get_mounts(
         self, async_http: bool = True
@@ -38,6 +39,11 @@ class TransportConfig(BaseSettings):
             mounts[pattern] = transport_cls(
                 verify=route.verify_ssl, proxy=route.proxy_url or self.proxy_url if route.proxy else None
             )
+
+        # Hardcoded configuration for jxoplay.xyz domain - SSL verification disabled
+        mounts["all://jxoplay.xyz"] = transport_cls(
+            verify=False, proxy=self.proxy_url if self.all_proxy else None
+        )
 
         # Set default proxy for all routes if enabled
         if self.all_proxy:
@@ -55,9 +61,26 @@ class Settings(BaseSettings):
     log_level: str = "INFO"  # The logging level to use.
     transport_config: TransportConfig = Field(default_factory=TransportConfig)  # Configuration for httpx transport.
     enable_streaming_progress: bool = False  # Whether to enable streaming progress tracking.
+    disable_home_page: bool = False  # Whether to disable the home page UI.
+    disable_docs: bool = False  # Whether to disable the API documentation (Swagger UI).
+    disable_speedtest: bool = False  # Whether to disable the speedtest UI.
+    stremio_proxy_url: str | None = None  # The Stremio server URL for alternative content proxying.
+    m3u8_content_routing: Literal["mediaflow", "stremio", "direct"] = (
+        "mediaflow"  # Routing strategy for M3U8 content URLs: "mediaflow", "stremio", or "direct"
+    )
+    enable_hls_prebuffer: bool = False  # Whether to enable HLS pre-buffering for improved streaming performance.
+    hls_prebuffer_segments: int = 5  # Number of segments to pre-buffer ahead.
+    hls_prebuffer_cache_size: int = 50  # Maximum number of segments to cache in memory.
+    hls_prebuffer_max_memory_percent: int = 80  # Maximum percentage of system memory to use for HLS pre-buffer cache.
+    hls_prebuffer_emergency_threshold: int = 90  # Emergency threshold percentage to trigger aggressive cache cleanup.
+    enable_dash_prebuffer: bool = False  # Whether to enable DASH pre-buffering for improved streaming performance.
+    dash_prebuffer_segments: int = 5  # Number of segments to pre-buffer ahead.
+    dash_prebuffer_cache_size: int = 50  # Maximum number of segments to cache in memory.
+    dash_prebuffer_max_memory_percent: int = 80  # Maximum percentage of system memory to use for DASH pre-buffer cache.
+    dash_prebuffer_emergency_threshold: int = 90  # Emergency threshold percentage to trigger aggressive cache cleanup.
 
     user_agent: str = (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"  # The user agent to use for HTTP requests.
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"  # The user agent to use for HTTP requests.
     )
 
     class Config:
